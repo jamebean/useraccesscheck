@@ -1,0 +1,121 @@
+三个给进程提权的方法
+
+方法一：
+
+C/C++ code
+
+bool EnableDebugPrivilege()   
+{   
+    HANDLE hToken;   
+    LUID sedebugnameValue;   
+    TOKEN_PRIVILEGES tkp;   
+    if (!OpenProcessToken(GetCurrentProcess(), TOKEN_ADJUST_PRIVILEGES | TOKEN_QUERY, &hToken))
+    {   
+        return   FALSE;   
+    }   
+    if (!LookupPrivilegeValue(NULL, SE_DEBUG_NAME, &sedebugnameValue))  
+    {   
+        CloseHandle(hToken);   
+        return false;   
+    }   
+    tkp.PrivilegeCount = 1;   
+    tkp.Privileges[0].Luid = sedebugnameValue;   
+    tkp.Privileges[0].Attributes = SE_PRIVILEGE_ENABLED;   
+    if (!AdjustTokenPrivileges(hToken, FALSE, &tkp, sizeof(tkp), NULL, NULL)) 
+    {   
+        CloseHandle(hToken);   
+        return false;   
+    }   
+    return true;   
+}
+
+
+
+
+方法二：
+
+C/C++ code
+
+bool UpPrivilege()   
+{   
+    HANDLE hToken;                             //   handle   to   process   token   
+    TOKEN_PRIVILEGES tkp;               //   pointer   to   token   structure   
+    bool result = OpenProcessToken(GetCurrentProcess(),   
+        TOKEN_ADJUST_PRIVILEGES|TOKEN_QUERY,     
+        &hToken);   
+    if(!result)         //打开进程错误   
+        return result;   
+    result   =   LookupPrivilegeValue(     NULL,     
+        SE_DEBUG_NAME,   
+        &tkp.Privileges[0].Luid);   
+    if(!result)         //查看进程权限错误   
+        return   result;   
+    tkp.PrivilegeCount   =   1;     //   one   privilege   to   set   
+    tkp.Privileges[0].Attributes   =   SE_PRIVILEGE_ENABLED;   
+    result   =   AdjustTokenPrivileges(   hToken,     
+        FALSE,     
+        &tkp,     
+        sizeof(TOKEN_PRIVILEGES),   
+        (PTOKEN_PRIVILEGES)   NULL,     
+        (PDWORD)   NULL);   
+    return   result;   
+}
+
+
+
+方法三：
+
+C/C++ code
+
+#define SE_CREATE_TOKEN_NAME              TEXT("SeCreateTokenPrivilege")
+#define SE_ASSIGNPRIMARYTOKEN_NAME        TEXT("SeAssignPrimaryTokenPrivilege")
+#define SE_LOCK_MEMORY_NAME               TEXT("SeLockMemoryPrivilege")
+#define SE_INCREASE_QUOTA_NAME            TEXT("SeIncreaseQuotaPrivilege")
+#define SE_UNSOLICITED_INPUT_NAME         TEXT("SeUnsolicitedInputPrivilege")
+#define SE_MACHINE_ACCOUNT_NAME           TEXT("SeMachineAccountPrivilege")
+#define SE_TCB_NAME                       TEXT("SeTcbPrivilege")
+#define SE_SECURITY_NAME                  TEXT("SeSecurityPrivilege")
+#define SE_TAKE_OWNERSHIP_NAME            TEXT("SeTakeOwnershipPrivilege")
+#define SE_LOAD_DRIVER_NAME               TEXT("SeLoadDriverPrivilege")
+#define SE_SYSTEM_PROFILE_NAME            TEXT("SeSystemProfilePrivilege")
+#define SE_SYSTEMTIME_NAME                TEXT("SeSystemtimePrivilege")
+#define SE_PROF_SINGLE_PROCESS_NAME       TEXT("SeProfileSingleProcessPrivilege")
+#define SE_INC_BASE_PRIORITY_NAME         TEXT("SeIncreaseBasePriorityPrivilege")
+#define SE_CREATE_PAGEFILE_NAME           TEXT("SeCreatePagefilePrivilege")
+#define SE_CREATE_PERMANENT_NAME          TEXT("SeCreatePermanentPrivilege")
+#define SE_BACKUP_NAME                    TEXT("SeBackupPrivilege")
+#define SE_RESTORE_NAME                   TEXT("SeRestorePrivilege")
+#define SE_SHUTDOWN_NAME                  TEXT("SeShutdownPrivilege")
+#define SE_DEBUG_NAME                     TEXT("SeDebugPrivilege")
+#define SE_AUDIT_NAME                     TEXT("SeAuditPrivilege")
+#define SE_SYSTEM_ENVIRONMENT_NAME        TEXT("SeSystemEnvironmentPrivilege")
+#define SE_CHANGE_NOTIFY_NAME             TEXT("SeChangeNotifyPrivilege")
+#define SE_REMOTE_SHUTDOWN_NAME           TEXT("SeRemoteShutdownPrivilege")
+#define SE_UNDOCK_NAME                    TEXT("SeUndockPrivilege")
+#define SE_SYNC_AGENT_NAME                TEXT("SeSyncAgentPrivilege")
+#define SE_ENABLE_DELEGATION_NAME         TEXT("SeEnableDelegationPrivilege")
+#define SE_MANAGE_VOLUME_NAME             TEXT("SeManageVolumePrivilege")
+
+BOOL EnablePrivilege(LPCTSTR lpszPrivilegeName,BOOL bEnable)
+{
+    HANDLE hToken;
+    TOKEN_PRIVILEGES tp;
+    LUID luid;
+    
+    if(!OpenProcessToken(GetCurrentProcess(),TOKEN_ADJUST_PRIVILEGES |
+        TOKEN_QUERY | TOKEN_READ,&hToken))
+        return FALSE;
+    if(!LookupPrivilegeValue(NULL, lpszPrivilegeName, &luid))
+        return TRUE;
+    
+    tp.PrivilegeCount = 1;
+    tp.Privileges[0].Luid = luid;
+    tp.Privileges[0].Attributes = (bEnable) ? SE_PRIVILEGE_ENABLED : 0;
+    
+    AdjustTokenPrivileges(hToken,FALSE,&tp,NULL,NULL,NULL);
+    
+    CloseHandle(hToken);
+    
+    return (GetLastError() == ERROR_SUCCESS);
+    
+}
