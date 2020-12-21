@@ -1,0 +1,89 @@
+BOOL GetFileSD(wstring strFile, PSECURITY_DESCRIPTOR *pFileSD, PACL *pACL)
+{
+BOOL bRetVal = FALSE;
+DWORD dwErr = 0;
+SECURITY_INFORMATION secInfo = DACL_SECURITY_INFORMATION;
+
+if (strFile.length() == 0)
+{
+cout << "ERROR: empty file name specified.\n" << endl;
+return FALSE;
+}
+
+HANDLE hFile = ::CreateFile(strFile.c_str(), READ_CONTROL, 0, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL | FILE_FLAG_BACKUP_SEMANTICS, NULL);
+if (hFile == INVALID_HANDLE_VALUE)
+{
+PrintWinError();
+return FALSE;
+}
+
+dwErr = ::GetSecurityInfo(hFile, SE_FILE_OBJECT, secInfo, NULL, NULL, pACL, NULL, pFileSD);
+if (dwErr != ERROR_SUCCESS)
+{
+PrintWinError(dwErr);
+::CloseHandle(hFile);
+return FALSE;
+}
+
+::CloseHandle(hFile);
+
+return TRUE;
+}
+
+BOOL CheckPermissionsOnFile(wstring strFileName, DWORD genericAccessRights)
+{
+BOOL bRet = FALSE;
+
+if (strFileName.length() < 1)
+return FALSE;
+
+PACL pFileDACL = NULL;
+PSECURITY_DESCRIPTOR pFileSD = NULL;
+BOOL bRetVal = GetFileSD(strFileName, &pFileSD, &pFileDACL);
+if (FALSE == bRetVal)
+{
+cout << L"ERROR: Failed to get file SID\n" << endl;
+goto CleanUp;
+}
+
+// If NULL DACL is present for the file that means that all access is present for this file. Therefore user has all the permissions.
+if (NULL == pFileDACL)
+{
+bRet = TRUE;
+goto CleanUp;
+}
+
+HANDLE hToken = NULL;
+if (::OpenProcessToken( ::GetCurrentProcess(), TOKEN_IMPERSONATE | TOKEN_QUERY | TOKEN_DUPLICATE | STANDARD_RIGHTS_READ, &hToken ))
+{
+HANDLE hImpersonatedToken = NULL;
+if (::DuplicateToken( hToken, SecurityImpersonation, &hImpersonatedToken ))
+{
+GENERIC_MAPPING mapping = { 0xFFFFFFFF };
+PRIVILEGE_SET privileges = { 0 };
+DWORD grantedAccess = 0, privilegesLength = sizeof( privileges );
+BOOL result = FALSE;
+
+mapping.GenericRead = FILE_GENERIC_READ;
+mapping.GenericWrite = FILE_GENERIC_WRITE;
+mapping.GenericExecute = FILE_GENERIC_EXECUTE;
+mapping.GenericAll = FILE_ALL_ACCESS;
+
+::MapGenericMask( &genericAccessRights, &mapping );
+
+if (::AccessCheck( pFileSD, hImpersonatedToken, genericAccessRights, &mapping, &privileges, &privilegesLength, &grantedAccess, &result ))
+{
+bRet = (result == TRUE);
+}
+::CloseHandle( hImpersonatedToken );
+}
+::CloseHandle( hToken );
+}
+
+CleanUp:
+if (pFileSD != NULL)
+{
+LocalFree(pFileSD);
+}
+return bRet;
+}
