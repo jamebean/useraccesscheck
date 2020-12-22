@@ -1,3 +1,61 @@
+CString GetProcessUserName(HANDLE hProcess)
+{
+HANDLE hToken = NULL;
+BOOL bFuncReturn = FALSE;
+CString strUserName = _T("");
+PTOKEN_USER pToken_User = NULL;
+DWORD dwTokenUser = 0;
+TCHAR szAccName[MAX_PATH] = {0};
+TCHAR szDomainName[MAX_PATH] = {0};
+HANDLE hProcessToken = NULL;
+if(hProcess != NULL)
+{
+// 提升本进程的权限
+bFuncReturn = ::OpenProcessToken(hProcess,TOKEN_QUERY,&hToken);
+if( bFuncReturn == 0) // 失败bai
+return strUserName;
+if(hToken != NULL)
+{
+::GetTokenInformation(hToken, TokenUser, NULL,0L, &dwTokenUser);
+if(dwTokenUser>0)
+{
+pToken_User = (PTOKEN_USER)::GlobalAlloc( GPTR, dwTokenUser );
+}
+if(pToken_User != NULL)
+{
+bFuncReturn = ::GetTokenInformation(hToken, TokenUser, pToken_User, dwTokenUser, &dwTokenUser);
+}
+if(bFuncReturn != FALSE && pToken_User != NULL)
+{
+SID_NAME_USE eUse = SidTypeUnknown;
+DWORD dwAccName = 0L;
+DWORD dwDomainName = 0L;
+PSID pSid = pToken_User->User.Sid;
+bFuncReturn = ::LookupAccountSid(NULL, pSid, NULL, &dwAccName,
+NULL,&dwDomainName,&eUse );
+if(dwAccName>0 && dwAccName < MAX_PATH && dwDomainName>0 && dwDomainName <= MAX_PATH)
+{
+bFuncReturn = ::LookupAccountSid(NULL,pSid,szAccName,&dwAccName,
+szDomainName,&dwDomainName,&eUse );
+}
+if( bFuncReturn != 0)
+strUserName = szAccName;
+}
+}
+}
+if (pToken_User != NULL)
+::GlobalFree( pToken_User );
+if(hToken != NULL)
+::CloseHandle(hToken);
+return strUserName;
+}
+
+
+
+
+
+
+
 #include "stdafx.h"
 #include <windows.h>
 #include <iostream>
