@@ -1,3 +1,64 @@
+bool SaveAccount(const std::string& username, const std::string& password) 
+{
+    char password_chars[255] = { 0 };
+    wchar_t username_wstrs[255] = { 0 };
+    wchar_t target_name_wstrs[1024] = { 0 };
+
+    // password
+    strcpy(password_chars, password.c_str());
+    DWORD cbCreds = 1 + strlen(password_chars);
+
+    // username
+    std::wstring username_wstr = nbase::UTF8ToUTF16(username);
+    wcscpy(username_wstrs, username_wstr.c_str());
+
+    // target name
+    std::wstring target_name_wstr = L"MyApp";
+    wcscpy(target_name_wstrs, target_name_wstr.c_str());
+
+    CREDENTIALW cred = { 0 };
+    cred.Type = CRED_TYPE_GENERIC;
+    cred.TargetName = target_name_wstrs;
+    cred.CredentialBlobSize = cbCreds;
+    cred.CredentialBlob = (LPBYTE)password_chars;
+    cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
+    cred.UserName = username_wstrs;
+
+    return ::CredWriteW(&cred, 0);
+}
+
+bool GetAccount(std::string& username, std::string& password)
+{
+    wchar_t username_wstrs[255] = { 0 };
+    wchar_t target_name_wstrs[1024] = { 0 };
+
+    // target name
+    std::wstring target_name_wstr = L"MyApp";
+
+    PCREDENTIALW pcred;
+
+    BOOL success = false;
+    do {
+        success = ::CredReadW(target_name_wstr.c_str(), CRED_TYPE_GENERIC, 0, &pcred);
+        if (!success)
+        {
+            break;
+        }
+        username = nbase::UTF16ToUTF8(pcred->UserName);
+
+        std::string pwd((char*)pcred->CredentialBlob, pcred->CredentialBlobSize);
+        password = pwd;
+        ::CredFree(pcred);
+        return true;
+    } while (0);
+
+    return false;
+}
+
+
+
+
+
 CString GetProcessUserName(HANDLE hProcess)
 {
 HANDLE hToken = NULL;
