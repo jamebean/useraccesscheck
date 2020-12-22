@@ -1,3 +1,44 @@
+BOOL GetSID(CString& csSID)
+{
+    BOOL bRes = FALSE;
+    csSID.Empty();
+ 
+    char acUserName[UNLEN + 1];
+    ::SecureZeroMemory(acUserName, sizeof(acUserName));
+    DWORD dwLength = UNLEN;  
+ 
+    bRes = ::GetUserNameA(acUserName, &dwLength);
+    if (bRes)
+    {
+        BYTE sidBuffer[100];
+        ::SecureZeroMemory(acUserName, sizeof(sidBuffer));
+        PSID psid = (PSID)&sidBuffer;
+        DWORD sidBufferSize = 100;
+        char domainBuffer[80];
+        ::SecureZeroMemory(acUserName, sizeof(domainBuffer));
+        DWORD domainBufferSize = 80;
+        SID_NAME_USE snu;
+ 
+        //Get SID
+        bRes = LookupAccountNameA(0, acUserName, psid, &sidBufferSize, domainBuffer, &domainBufferSize, &snu);
+        if (bRes)
+        {
+            char* cSid = NULL;
+            bRes = ConvertSidToStringSidA(psid, &cSid);
+            if (bRes)
+            {
+                csSID = cSid;
+            }
+            if (cSid)
+            {                
+                LocalFree((HLOCAL)cSid); // Release sid space
+            }
+        }
+    }
+ 
+    return bRes;
+}
+
 BOOL GetFileSD(wstring strFile, PSECURITY_DESCRIPTOR *pFileSD, PACL *pACL)
 {
 BOOL bRetVal = FALSE;
